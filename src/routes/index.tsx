@@ -1,112 +1,176 @@
-import { component$ } from "@builder.io/qwik";
-import type { DocumentHead } from "@builder.io/qwik-city";
+import {
+  component$,
+  useStore,
+  useVisibleTask$,
+  useSignal,
+} from "@builder.io/qwik";
+import {
+  type DocumentHead,
+  routeLoader$,
+  server$,
+} from "@builder.io/qwik-city";
+import { ImageCard } from "~/components/image-card/ImageCard";
+import { db } from "~/db/db";
+import { GetObjectCommand } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { BUCKET_NAME, s3 } from "~/lib/s3";
 
-import Counter from "../components/starter/counter/counter";
-import Hero from "../components/starter/hero/hero";
-import Infobox from "../components/starter/infobox/infobox";
-import Starter from "../components/starter/next-steps/next-steps";
+const PAGE_SIZE = 10;
+
+// This function contains the core logic for fetching and preparing memes.
+// It will be called by both the routeLoader and the server$ function.
+// NOTE: This function itself is NOT a server$ function, it's just a regular
+// function that will only ever be executed on the server.
+const getMemesFeed = async (
+  session: any,
+  page: number,
+): Promise<{ memes: any[]; hasMore: boolean }> => {
+  let query = db
+    .selectFrom("memes")
+    .innerJoin("User", "User.id", "memes.user_id")
+    .select([
+      "memes.id as imageId",
+      "memes.caption",
+      "User.name as uploaderName",
+      "User.email as uploaderEmail",
+      "User.id as uploaderId",
+    ])
+    .limit(PAGE_SIZE)
+    .offset((page - 1) * PAGE_SIZE)
+    .orderBy("memes.created_at", "desc");
+
+  if (session && session.user) {
+    const userId = session.user.id;
+    query = query.where((eb) =>
+      eb.or([
+        eb("memes.user_id", "=", userId),
+        eb("memes.privacy", "=", "public"),
+        eb.and([
+          eb("memes.privacy", "=", "buddies_only"),
+          eb(
+            "memes.user_id",
+            "in",
+            eb
+              .selectFrom("buddy_list")
+              .select("buddy_id")
+              .where("user_id", "=", userId),
+          ),
+        ]),
+      ]),
+    );
+  } else {
+    query = query.where("memes.privacy", "=", "public");
+  }
+
+  const memesFromDb = await query.execute();
+
+  // Generate presigned URLs in parallel
+  const memesWithUrls = await Promise.all(
+    memesFromDb.map(async (meme) => {
+      const s3Key = `memes/${meme.uploaderId}/${meme.imageId}.org`;
+      const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: s3Key });
+      const presignedImageUrl = await getSignedUrl(s3, command, {
+        expiresIn: 3600,
+      }); // Expires in 1 hour
+
+      return {
+        ...meme,
+        imageUrl: presignedImageUrl,
+        uploaderLink: `/u/${meme.uploaderId}`,
+        uploaderImageUrl: `/api/avatar/${meme.uploaderId}`, // Use the proxy
+        uploaderName: meme.uploaderName || meme.uploaderEmail,
+      };
+    }),
+  );
+
+  return {
+    memes: memesWithUrls,
+    hasMore: memesFromDb.length === PAGE_SIZE,
+  };
+};
+
+// routeLoader$ for the initial page load (SSR)
+export const useFeedLoader = routeLoader$(async (requestEvent) => {
+  const session = requestEvent.sharedMap.get("session");
+  return await getMemesFeed(session, 1);
+});
+
+// server$ for fetching subsequent pages on the client
+export const getNextPage = server$(async function (page: number) {
+  const session = this.sharedMap.get("session");
+  return await getMemesFeed(session, page);
+});
 
 export default component$(() => {
+  const initialData = useFeedLoader();
+  const feedState = useStore({
+    memes: initialData.value.memes,
+    page: 1,
+    hasMore: initialData.value.hasMore,
+    isLoading: false,
+  });
+  const triggerRef = useSignal<Element>();
+
+  // eslint-disable-next-line qwik/no-use-visible-task
+  useVisibleTask$(({ track }) => {
+    track(() => triggerRef.value);
+
+    if (triggerRef.value) {
+      const observer = new IntersectionObserver(async (entries) => {
+        if (
+          entries[0].isIntersecting &&
+          feedState.hasMore &&
+          !feedState.isLoading
+        ) {
+          feedState.isLoading = true;
+          const nextPage = feedState.page + 1;
+          const newData = await getNextPage(nextPage);
+          feedState.memes.push(...newData.memes);
+          feedState.page = nextPage;
+          feedState.hasMore = newData.hasMore;
+          feedState.isLoading = false;
+        }
+      });
+      observer.observe(triggerRef.value);
+      return () => observer.disconnect();
+    }
+  });
+
   return (
-    <>
-      <Hero />
-      <Starter />
-
-      <div role="presentation" class="ellipsis"></div>
-      <div role="presentation" class="ellipsis ellipsis-purple"></div>
-
-      <div class="container container-center container-spacing-xl">
-        <h3>
-          You can <span class="highlight">count</span>
-          <br /> on me
-        </h3>
-        <Counter />
+    <div class="mx-auto max-w-xl p-4">
+      <div class="space-y-8">
+        {feedState.memes.map((meme) => (
+          <ImageCard
+            key={meme.imageId}
+            imageUrl={meme.imageUrl}
+            caption={meme.caption}
+            uploaderName={meme.uploaderName}
+            uploaderImageUrl={meme.uploaderImageUrl}
+            uploaderLink={meme.uploaderLink}
+            imageId={meme.imageId}
+          />
+        ))}
       </div>
-
-      <div class="container container-flex">
-        <Infobox>
-          <div q:slot="title" class="icon icon-cli">
-            CLI Commands
-          </div>
-          <>
-            <p>
-              <code>npm run dev</code>
-              <br />
-              Starts the development server and watches for changes
-            </p>
-            <p>
-              <code>npm run preview</code>
-              <br />
-              Creates production build and starts a server to preview it
-            </p>
-            <p>
-              <code>npm run build</code>
-              <br />
-              Creates production build
-            </p>
-            <p>
-              <code>npm run qwik add</code>
-              <br />
-              Runs the qwik CLI to add integrations
-            </p>
-          </>
-        </Infobox>
-
-        <div>
-          <Infobox>
-            <div q:slot="title" class="icon icon-apps">
-              Example Apps
-            </div>
-            <p>
-              Have a look at the <a href="/demo/flower">Flower App</a> or the{" "}
-              <a href="/demo/todolist">Todo App</a>.
-            </p>
-          </Infobox>
-
-          <Infobox>
-            <div q:slot="title" class="icon icon-community">
-              Community
-            </div>
-            <ul>
-              <li>
-                <span>Questions or just want to say hi? </span>
-                <a href="https://qwik.dev/chat" target="_blank">
-                  Chat on discord!
-                </a>
-              </li>
-              <li>
-                <span>Follow </span>
-                <a href="https://twitter.com/QwikDev" target="_blank">
-                  @QwikDev
-                </a>
-                <span> on Twitter</span>
-              </li>
-              <li>
-                <span>Open issues and contribute on </span>
-                <a href="https://github.com/QwikDev/qwik" target="_blank">
-                  GitHub
-                </a>
-              </li>
-              <li>
-                <span>Watch </span>
-                <a href="https://qwik.dev/media/" target="_blank">
-                  Presentations, Podcasts, Videos, etc.
-                </a>
-              </li>
-            </ul>
-          </Infobox>
+      {feedState.hasMore && (
+        <div ref={triggerRef} class="h-8 text-center">
+          {feedState.isLoading && <p>Loading more memes...</p>}
         </div>
-      </div>
-    </>
+      )}
+      {!feedState.hasMore && (
+        <p class="py-8 text-center text-lg text-gray-500">
+          You've reached the end of the feed!
+        </p>
+      )}
+    </div>
   );
 });
 
 export const head: DocumentHead = {
-  title: "Welcome to Qwik",
+  title: "Meme Feed",
   meta: [
     {
       name: "description",
-      content: "Qwik site description",
+      content: "An infinite scrolling feed of the dankest memes.",
     },
   ],
 };

@@ -1,10 +1,10 @@
-import { component$, Slot, useStyles$ } from "@builder.io/qwik";
-import { routeLoader$ } from "@builder.io/qwik-city";
-
-import Header from "../components/starter/header/header";
-import Footer from "../components/starter/footer/footer";
-
-import styles from "./styles.css?inline";
+import { component$, Slot } from "@builder.io/qwik";
+import { Link, routeLoader$ } from "@builder.io/qwik-city";
+import { Button } from "~/components/button";
+import { Header } from "~/components/header";
+import { Logo } from "~/components/logo";
+import { UserAuth } from "~/components/user-auth/UserAuth";
+import { useSession } from "./plugin@auth";
 
 export const useServerTimeLoader = routeLoader$(() => {
   return {
@@ -13,14 +13,29 @@ export const useServerTimeLoader = routeLoader$(() => {
 });
 
 export default component$(() => {
-  useStyles$(styles);
+  const session = useSession();
   return (
     <>
-      <Header />
+      <Header>
+        <Link href="/" class="group flex items-center gap-4">
+          <Logo />
+          <span class="text-xl font-bold group-hover:underline">
+            MEMEMEMEME
+          </span>
+        </Link>
+        <div class="flex items-center gap-4">
+          {session.value?.user && (
+            <Link href="/upload">
+              <Button variant="neutral">Upload</Button>
+            </Link>
+          )}
+          <UserAuth />
+        </div>
+      </Header>
       <main>
         <Slot />
       </main>
-      <Footer />
+      <p>Footer</p>
     </>
   );
 });
