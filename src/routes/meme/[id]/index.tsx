@@ -19,6 +19,8 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
       "memes.id as imageId",
       "memes.caption",
       "memes.privacy",
+      "memes.image_url",
+      "memes.extracted_text",
       "memes.created_at as createdAt", // Fetch the timestamp
       "User.name as uploaderName",
       "User.email as uploaderEmail",
@@ -27,7 +29,7 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
 
   const memeFromDb = await query.executeTakeFirst();
 
-  if (!memeFromDb) {
+  if (!memeFromDb || !memeFromDb.image_url) {
     throw requestEvent.error(404, "Meme not found.");
   }
 
@@ -56,7 +58,7 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
     );
   }
 
-  const s3Key = `memes/${memeFromDb.uploaderId}/${memeFromDb.imageId}.org`;
+  const s3Key = `${memeFromDb.image_url}.org`;
   const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: s3Key });
   const presignedImageUrl = await getSignedUrl(s3, command, {
     expiresIn: 3600,
@@ -65,6 +67,7 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
   return {
     imageId: memeFromDb.imageId,
     caption: memeFromDb.caption,
+    extractedText: memeFromDb.extracted_text,
     createdAt: new Date(memeFromDb.createdAt).toLocaleDateString("en-US", {
       year: "numeric",
       month: "long",
@@ -136,6 +139,13 @@ export default component$(() => {
           <div class="rounded-base border-border bg-background shadow-shadow border-2 p-4">
             <p class="text-lg">{meme.value.caption}</p>
           </div>
+        )}
+
+        {/* OCR Text */}
+        {meme.value.extractedText && (
+          <blockquote class="rounded-base border-border bg-background shadow-shadow border-l-4 border-l-main border-y-2 border-r-2 p-4 italic">
+            {meme.value.extractedText}
+          </blockquote>
         )}
 
         {/* Comments Placeholder */}

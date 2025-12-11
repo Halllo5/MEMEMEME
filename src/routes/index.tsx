@@ -31,10 +31,13 @@ const getMemesFeed = async (
     .select([
       "memes.id as imageId",
       "memes.caption",
+      "memes.image_url",
       "User.name as uploaderName",
       "User.email as uploaderEmail",
       "User.id as uploaderId",
     ])
+    .where("memes.image_url", "is not", null)
+    .where("memes.image_url", "!=", "")
     .limit(PAGE_SIZE)
     .offset((page - 1) * PAGE_SIZE)
     .orderBy("memes.created_at", "desc");
@@ -67,11 +70,11 @@ const getMemesFeed = async (
   // Generate presigned URLs in parallel
   const memesWithUrls = await Promise.all(
     memesFromDb.map(async (meme) => {
-      const s3Key = `memes/${meme.uploaderId}/${meme.imageId}.org`;
+      const s3Key = `${meme.image_url}.org`;
       const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: s3Key });
       const presignedImageUrl = await getSignedUrl(s3, command, {
-        expiresIn: 3600,
-      }); // Expires in 1 hour
+        expiresIn: 60 * 5,
+      });
 
       return {
         ...meme,

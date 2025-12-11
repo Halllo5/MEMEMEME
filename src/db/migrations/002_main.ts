@@ -35,11 +35,8 @@ export async function up(db: Kysely<any>): Promise<void> {
     )
     .addColumn("created_at", "timestamp", (col) => col.defaultTo(sql`now()`))
 
-    // The Vibe (768 dimensions is standard for Google/HuggingFace embeddings)
-    .addColumn("embedding", sql`vector(768)`)
+    .addColumn("embedding", sql`vector(512)`)
 
-    // The Keywords (Generated Column)
-    // We use raw SQL here to define the 'GENERATED ALWAYS AS' logic
     .addColumn("content_search", sql`tsvector`, (col) =>
       col
         .generatedAlwaysAs(

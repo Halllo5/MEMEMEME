@@ -3,7 +3,7 @@ import { server$, type DocumentHead } from "@builder.io/qwik-city";
 import { PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { db, type PrivacyLevel } from "~/db/db";
-import { BUCKET_NAME, S3baseUrl, s3 } from "~/lib/s3";
+import { BUCKET_NAME, s3 } from "~/lib/s3";
 import { Button } from "~/components/button";
 import { allowedMimeTypes } from "~/lib/const";
 
@@ -43,17 +43,41 @@ const createdMeme = server$(async function (
 });
 
 const confirmedUpload = server$(async function (id: string) {
-  const session = this.sharedMap.get("session");
-  if (!session || !session.user || new Date(session.expires) < new Date()) {
-    return { success: false, error: "You are not authorized." };
+  try {
+    const session = this.sharedMap.get("session");
+    if (!session || !session.user || new Date(session.expires) < new Date()) {
+      return { success: false, error: "You are not authorized." };
+    }
+    // call the processing endpoint
+    const processingKey = process.env.PROCESSING_KEY;
+    if (!processingKey) {
+      console.error("PROCESSING_KEY is not defined");
+      return { success: false, error: "Server configuration error" };
+    }
+
+    const processingResponse = await fetch(
+      `${process.env.PROCESSING_URL}/process`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": processingKey,
+        },
+        body: JSON.stringify({
+          uploader_id: session.user.id,
+          meme_id: id,
+        }),
+      },
+    );
+    if (!processingResponse.ok) {
+      console.error("Processing failed", processingResponse);
+      return { success: false, error: "Processing failed" };
+    }
+    return { success: true };
+  } catch (error) {
+    console.error("Failed to confirm upload", error);
+    return { success: false, error: "Failed to confirm upload" };
   }
-  const result = await db
-    .updateTable("memes")
-    .where("id", "=", id)
-    .where("user_id", "=", session.user.id)
-    .set({ image_url: `${S3baseUrl}/memes/${session.user.id}/${id}.org` })
-    .execute();
-  return { success: result.length > 0 };
 });
 
 // --- UI COMPONENT ---
@@ -315,5 +339,5 @@ export default component$(() => {
 });
 
 export const head: DocumentHead = {
-  title: "Upload Memes",
+  title: "Upload your Memes",
 };

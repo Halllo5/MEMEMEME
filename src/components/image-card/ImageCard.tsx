@@ -23,7 +23,7 @@ export const ImageCard = component$<ImageCardProps>(
     const uploaderInitial = uploaderName?.substring(0, 2);
     const profilePicHasError = useSignal(false);
     return (
-      <div class="rounded-base border-border bg-background shadow-shadow block overflow-hidden border-2">
+      <div class="rounded-base border-border bg-background h-auto shadow-shadow block overflow-hidden border-2">
         {/* Main Image */}
         <div class="bg-secondary-background aspect-square">
           <Link href={`/meme/${imageId}`}>
