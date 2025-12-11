@@ -23,16 +23,15 @@ export const ImageCard = component$<ImageCardProps>(
     const uploaderInitial = uploaderName?.substring(0, 2);
     const profilePicHasError = useSignal(false);
     return (
-      <div class="rounded-base border-border bg-background h-auto shadow-shadow block overflow-hidden border-2">
+      <div class="rounded-base border-border bg-background shadow-shadow block h-auto overflow-hidden border-2">
         {/* Main Image */}
-        <div class="bg-secondary-background aspect-square">
+        <div class="bg-secondary-background">
           <Link href={`/meme/${imageId}`}>
+            {/* eslint-disable-next-line qwik/jsx-img */}
             <img
               src={imageUrl}
               alt={caption || `Uploaded by ${uploaderName}`}
-              class="object-cover"
-              width={600}
-              height={600}
+              class="h-auto w-full"
               loading="lazy"
             />
           </Link>

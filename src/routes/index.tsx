@@ -13,6 +13,7 @@ import { ImageCard } from "~/components/image-card/ImageCard";
 import { db } from "~/db/db";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
+import { applyMemeFeedVisibility } from "~/lib/permissions";
 import { BUCKET_NAME, s3 } from "~/lib/s3";
 
 const PAGE_SIZE = 10;
@@ -42,35 +43,14 @@ const getMemesFeed = async (
     .offset((page - 1) * PAGE_SIZE)
     .orderBy("memes.created_at", "desc");
 
-  if (session && session.user) {
-    const userId = session.user.id;
-    query = query.where((eb) =>
-      eb.or([
-        eb("memes.user_id", "=", userId),
-        eb("memes.privacy", "=", "public"),
-        eb.and([
-          eb("memes.privacy", "=", "buddies_only"),
-          eb(
-            "memes.user_id",
-            "in",
-            eb
-              .selectFrom("buddy_list")
-              .select("buddy_id")
-              .where("user_id", "=", userId),
-          ),
-        ]),
-      ]),
-    );
-  } else {
-    query = query.where("memes.privacy", "=", "public");
-  }
+  query = applyMemeFeedVisibility(query, session);
 
   const memesFromDb = await query.execute();
 
   // Generate presigned URLs in parallel
   const memesWithUrls = await Promise.all(
     memesFromDb.map(async (meme) => {
-      const s3Key = `${meme.image_url}.org`;
+      const s3Key = `${meme.image_url}.opt`;
       const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: s3Key });
       const presignedImageUrl = await getSignedUrl(s3, command, {
         expiresIn: 60 * 5,

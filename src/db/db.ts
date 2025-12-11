@@ -8,6 +8,8 @@ import { Kysely } from "kysely";
 // --------------------------------------------------------
 
 export type PrivacyLevel = "public" | "buddies_only" | "private";
+export type BuddyStatus = "created" | "buddy" | "blocked";
+export type ReportStatus = "created" | "reviewed";
 
 // --------------------------------------------------------
 // 2. AUTH TABLES (Auth.js / NextAuth Standard)
@@ -59,6 +61,7 @@ export interface BuddyListTable {
   // references User.id
   buddy_id: string;
   created_at: GeneratedAlways<Date>;
+  status: BuddyStatus;
 }
 
 export interface MemesTable {
@@ -79,6 +82,15 @@ export interface MemesTable {
   created_at: GeneratedAlways<Date>;
 }
 
+export interface ReportsTable {
+  id: GeneratedAlways<string>;
+  reporter_id: string;
+  meme_id: string;
+  message: string | null;
+  status: ReportStatus;
+  created_at: GeneratedAlways<Date>;
+}
+
 // --------------------------------------------------------
 // 4. MAIN DATABASE INTERFACE
 // --------------------------------------------------------
@@ -93,6 +105,7 @@ export interface Database {
   // Your custom tables usually default to snake_case
   buddy_list: BuddyListTable;
   memes: MemesTable;
+  reports: ReportsTable;
 }
 
 // --------------------------------------------------------
