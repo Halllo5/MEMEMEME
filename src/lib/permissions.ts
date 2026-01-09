@@ -4,6 +4,66 @@ import { Selectable } from "kysely";
 
 type Meme = Selectable<MemesTable>;
 
+export type BuddyStatus =
+  | { status: "not_buddies" }
+  | { status: "buddies" }
+  | { status: "request_sent" }
+  | { status: "request_received" }
+  | { status: "blocked" }
+  | { status: "self" };
+
+export async function getBuddyStatus(
+  sessionUserId: string | undefined | null,
+  profileUserId: string | undefined | null,
+): Promise<BuddyStatus> {
+  if (!sessionUserId || !profileUserId) {
+    return { status: "not_buddies" };
+  }
+
+  if (sessionUserId === profileUserId) {
+    return { status: "self" };
+  }
+
+  const connection = await db
+    .selectFrom("buddy_list")
+    .selectAll()
+    .where((eb) =>
+      eb.or([
+        eb.and([
+          eb("user_id", "=", sessionUserId),
+          eb("buddy_id", "=", profileUserId),
+        ]),
+        eb.and([
+          eb("user_id", "=", profileUserId),
+          eb("buddy_id", "=", sessionUserId),
+        ]),
+      ]),
+    )
+    .executeTakeFirst();
+
+  if (!connection) {
+    return { status: "not_buddies" };
+  }
+
+  if (connection.status === "blocked") {
+    return { status: "blocked" };
+  }
+
+  if (connection.status === "buddy") {
+    return { status: "buddies" };
+  }
+
+  if (connection.status === "created") {
+    if (connection.user_id === sessionUserId) {
+      return { status: "request_sent" };
+    } else {
+      return { status: "request_received" };
+    }
+  }
+
+  return { status: "not_buddies" };
+}
+
 export async function areBuddies(
   userId1: string | undefined | null,
   userId2: string | undefined | null,
@@ -11,27 +71,8 @@ export async function areBuddies(
   if (!userId1 || !userId2) return false;
   if (userId1 === userId2) return false;
 
-  // Check both directions to be safe, though UI logic should handle creation
-  const buddyConnection = await db
-    .selectFrom("buddy_list")
-    .selectAll()
-    .where((eb) =>
-      eb.or([
-        eb.and([
-          eb("user_id", "=", userId1),
-          eb("buddy_id", "=", userId2),
-          eb("status", "=", "buddy"),
-        ]),
-        eb.and([
-          eb("user_id", "=", userId2),
-          eb("buddy_id", "=", userId1),
-          eb("status", "=", "buddy"),
-        ]),
-      ]),
-    )
-    .executeTakeFirst();
-
-  return !!buddyConnection;
+  const buddyStatus = await getBuddyStatus(userId1, userId2);
+  return buddyStatus.status === "buddies";
 }
 
 export async function canViewMeme(

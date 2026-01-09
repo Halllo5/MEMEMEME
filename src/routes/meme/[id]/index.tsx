@@ -4,13 +4,14 @@ import { db } from "~/db/db";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { BUCKET_NAME, s3 } from "~/lib/s3";
-import { Button } from "~/components/button";
-import { canViewMeme } from "~/lib/permissions";
+import { canViewMeme, getBuddyStatus } from "~/lib/permissions";
 import { useSession } from "~/routes/plugin@auth";
+import { BuddyButton } from "~/components/buddy-button/BuddyButton";
 
 export const useMemeLoader = routeLoader$(async (requestEvent) => {
   const memeId = requestEvent.params.id;
   const session = requestEvent.sharedMap.get("session");
+  const sessionUserId = session?.user?.id;
 
   const query = db
     .selectFrom("memes")
@@ -52,6 +53,11 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
     expiresIn: 3600,
   });
 
+  const buddyStatus = await getBuddyStatus(
+    sessionUserId,
+    memeFromDb.uploaderId,
+  );
+
   return {
     imageId: memeFromDb.imageId,
     caption: memeFromDb.caption,
@@ -66,6 +72,7 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
     imageUrl: presignedImageUrl,
     uploaderLink: `/u/${memeFromDb.uploaderId}`,
     uploaderImageUrl: `/api/avatar/${memeFromDb.uploaderId}`,
+    buddyStatus,
   };
 });
 
@@ -108,7 +115,10 @@ export default component$(() => {
           </Link>
           {session.value?.user &&
             session.value.user.id !== meme.value.uploaderId && (
-              <Button>Buddy Up</Button>
+              <BuddyButton
+                buddyStatus={meme.value.buddyStatus}
+                profileUserId={meme.value.uploaderId}
+              />
             )}
         </div>
 

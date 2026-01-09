@@ -44,7 +44,7 @@ def process_and_callback(process_request: ProcessRequest):
         # Optimize and upload as webp
         try:
             with BytesIO() as webp_buffer:
-                original_image.save(webp_buffer, format="webp", quality=85)
+                original_image.save(webp_buffer, format="webp", quality=85, save_all=True)
                 webp_bytes = webp_buffer.getvalue()
 
             s3_manager.upload_optimized(
@@ -59,8 +59,11 @@ def process_and_callback(process_request: ProcessRequest):
             )
 
         # Run processing
-        ocr_result = ocr(original_image)
+        ocr_result = ""
+        if not original_image.format == "gif":
+            ocr_result = ocr(original_image)
         vector = vectorizer.vectorize_image(original_image)
+            
 
         result = {
             "status": "processed",

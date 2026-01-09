@@ -1,17 +1,16 @@
 import { component$, useSignal } from "@builder.io/qwik";
-import {
-  routeLoader$,
-  type DocumentHead,
-  server$,
-} from "@builder.io/qwik-city";
+import { routeLoader$, type DocumentHead } from "@builder.io/qwik-city";
 import { db } from "~/db/db";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { BUCKET_NAME, s3 } from "~/lib/s3";
 import { ImageCard } from "~/components/image-card/ImageCard";
-import { Button } from "~/components/button";
-import { areBuddies, getVisiblePrivacyLevelsForUser } from "~/lib/permissions";
+import {
+  getBuddyStatus,
+  getVisiblePrivacyLevelsForUser,
+} from "~/lib/permissions";
 import { useSession } from "~/routes/plugin@auth";
+import { BuddyButton } from "~/components/buddy-button/BuddyButton";
 
 const PAGE_SIZE = 12;
 
@@ -30,12 +29,11 @@ export const useUserLoader = routeLoader$(async (requestEvent) => {
     throw requestEvent.error(404, "User not found.");
   }
 
-  const isSelf = sessionUserId === profileUserId;
-  const isBuddy = await areBuddies(profileUserId, sessionUserId);
   const privacyLevels = await getVisiblePrivacyLevelsForUser(
     session,
     profileUserId,
   );
+  const buddyStatus = await getBuddyStatus(sessionUserId, profileUserId);
 
   const memesFromDb = await db
     .selectFrom("memes")
@@ -81,31 +79,9 @@ export const useUserLoader = routeLoader$(async (requestEvent) => {
       avatarUrl: `/api/avatar/${profileUser.id}`,
     },
     memes: memesWithUrls,
-    isSelf,
-    isBuddy,
+    buddyStatus,
     hasMore: memesFromDb.length === PAGE_SIZE,
   };
-});
-
-export const addBuddy = server$(async function (buddyId: string) {
-  const session = this.sharedMap.get("session");
-  if (!session?.user) {
-    throw new Error("Not authenticated");
-  }
-  const userId: string = session.user.id;
-
-  if (userId === buddyId) {
-    throw new Error("Cannot add yourself as a buddy");
-  }
-
-  // Bidirectional buddy relationship
-  await db
-    .insertInto("buddy_list")
-    .values({ user_id: userId, buddy_id: buddyId, status: "created" })
-    .onConflict((oc) => oc.doNothing())
-    .execute();
-
-  return { success: true };
 });
 
 export default component$(() => {
@@ -114,10 +90,7 @@ export default component$(() => {
   const user = data.value.profileUser;
   const memes = data.value.memes;
   const profilePicError = useSignal(false);
-  const isBuddySignal = useSignal(data.value.isBuddy);
   const uploaderInitial = user.name.substring(0, 2).toUpperCase();
-
-  const canBuddyUp = session.value?.user && !data.value.isSelf;
 
   return (
     <div class="mx-auto max-w-5xl p-4 sm:p-6 lg:p-8">
@@ -142,23 +115,12 @@ export default component$(() => {
             <h1 class="text-3xl font-bold sm:text-4xl">{user.name}</h1>
             {/* Could add more user info here, like join date */}
           </div>
-          {canBuddyUp &&
-            (isBuddySignal.value ? (
-              <Button disabled style="secondary">
-                Buddies
-              </Button>
-            ) : (
-              <Button
-                onClick$={async () => {
-                  const res = await addBuddy(user.id);
-                  if (res.success) {
-                    isBuddySignal.value = true;
-                  }
-                }}
-              >
-                Buddy Up
-              </Button>
-            ))}
+          {session.value?.user && (
+            <BuddyButton
+              buddyStatus={data.value.buddyStatus}
+              profileUserId={user.id}
+            />
+          )}
         </div>
 
         {/* User's Memes */}
