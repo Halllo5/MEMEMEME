@@ -16,7 +16,7 @@ export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(
       origin: env.get("AUTH_URL"),
       // trustHost: env.get("AUTH_TRUST_HOST") === 'true',
       trustHost: true,
-      debug: true,
+      debug: false,
       session: {
         strategy: "database",
       },
