@@ -37,7 +37,7 @@ export default component$(() => {
 			<main>
 				<Slot />
 			</main>
-			<p>Footer</p>
+			<p></p>
 		</>
 	);
 });

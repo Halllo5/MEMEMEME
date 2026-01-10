@@ -29,13 +29,13 @@ const search = server$(async function(query: string) {
 			body: JSON.stringify({
 				text: query,
 			}),
-		}
+		},
 	);
 	if (!searchVectorResult.ok) {
 		console.error("Vectorisation failed failed", searchVectorResult);
 		return { success: false, error: "Processing failed", data: "" };
 	}
-	let searchVector = await searchVectorResult.json();
+	const searchVector = await searchVectorResult.json();
 	const distanceThreshold = 0.8; // Cosine distance threshold for vector similarity
 	const textWeight = 0.5;
 	const vectorWeight = 0.5;
@@ -55,12 +55,12 @@ const search = server$(async function(query: string) {
 				])
 				.where((eb) =>
 					eb.or([
-						sql`content_search @@ ${tsQuery}`,
-						sql`embedding <=> ${vectorSqlString} < ${distanceThreshold}`,
-					])
+						sql<boolean>`content_search @@ ${tsQuery}`,
+						sql<boolean>`embedding <=> ${vectorSqlString} < ${distanceThreshold}`,
+					]),
 				),
-			session
-		)
+			session,
+		),
 	);
 
 	// 2.  Order by the now-real columns
@@ -68,7 +68,7 @@ const search = server$(async function(query: string) {
 		.selectFrom("visible")
 		.selectAll()
 		.orderBy(
-			sql`${textWeight} * text_rank + ${vectorWeight} * (1 - (distance / 2)) DESC`
+			sql`${textWeight} * text_rank + ${vectorWeight} * (1 - (distance / 2)) DESC`,
 		)
 		.limit(5)
 		.execute();
@@ -132,7 +132,7 @@ export const Search = component$(() => {
 					bind:value={querySig}
 					type="text"
 					placeholder="Search memes..."
-					class="w-full p-2 text-main-foreground bg-white border-2 border-border shadow-shadow outline-none focus:ring-2 focus:ring-blue-400"
+					class="text-main-foreground border-border shadow-shadow w-full border-2 bg-white p-2 outline-none focus:ring-2 focus:ring-blue-400"
 					onFocus$={() => {
 						if (resultsSig.value.length > 0) showDropdownSig.value = true;
 					}}
@@ -142,7 +142,7 @@ export const Search = component$(() => {
 
 			{/* Dropdown Results */}
 			{showDropdownSig.value && (
-				<div class="absolute z-50 w-full mt-1 bg-white border-2 border-border shadow-xl max-h-60 overflow-y-auto">
+				<div class="border-border absolute z-50 mt-1 max-h-60 w-full overflow-y-auto border-2 bg-white shadow-xl">
 					{isSearchingSig.value ? (
 						<div class="p-2 text-gray-500">Searching...</div>
 					) : resultsSig.value.length > 0 ? (
@@ -151,13 +151,12 @@ export const Search = component$(() => {
 								<Link href={`/meme/${item.id}`}>
 									<li
 										key={item.id || index}
-										class="p-2 hover:bg-main cursor-pointer border-border border-gray-100 last:border-0"
-
+										class="hover:bg-main border-border cursor-pointer border-gray-100 p-2 last:border-0"
 									>
 										{/* Adjust these fields based on your actual DB schema */}
 										<img src={item.imageUrl} />
 										<div class="font-bold">{item.title || ""}</div>
-										<div class="text-sm text-gray-500 truncate">
+										<div class="truncate text-sm text-gray-500">
 											{item.content || item.description}
 										</div>
 									</li>

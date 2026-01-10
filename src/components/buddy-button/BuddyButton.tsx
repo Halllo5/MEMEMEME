@@ -3,6 +3,7 @@ import { server$ } from "@builder.io/qwik-city";
 import type { BuddyStatus } from "~/lib/permissions";
 import { Button } from "~/components/button";
 import { db } from "~/db/db";
+import { SendMail } from "~/lib/mail";
 
 interface BuddyButtonProps {
 	buddyStatus: BuddyStatus;
@@ -26,6 +27,29 @@ export const addBuddy = server$(async function(buddyId: string) {
 		.values({ user_id: userId, buddy_id: buddyId, status: "created" })
 		.onConflict((oc) => oc.doNothing())
 		.execute();
+	const users = await db
+		.selectFrom("User")
+		.where("id", "in", [userId, buddyId])
+		.select(["id", "email", "name"])
+		.execute();
+
+	// 3. Extract logic: If name exists use it, otherwise use email
+	const userRow = users.find((u) => u.id === userId);
+	const buddyRow = users.find((u) => u.id === buddyId);
+
+	// The || operator handles null, undefined, or empty string "" automatically
+	const userDisplayName = userRow?.name || userRow?.email;
+	// const buddyDisplayName = buddyRow?.name || buddyRow?.email;
+
+	const emailHTML = `
+<p>${userDisplayName} wants to be your buddy 😎</p>
+<a href="${process.env.AUTH_URL}/u/${buddyRow?.id}">Visit profile </a>
+`;
+	SendMail(
+		emailHTML,
+		`${userDisplayName} wants to be your buddy 😎`,
+		buddyRow?.email || "invalid@thesven.cloud",
+	);
 
 	return { success: true };
 });
@@ -43,6 +67,29 @@ export const acceptBuddy = server$(async function(buddyId: string) {
 		.where("user_id", "=", buddyId)
 		.where("buddy_id", "=", userId)
 		.execute();
+	const users = await db
+		.selectFrom("User")
+		.where("id", "in", [userId, buddyId])
+		.select(["id", "email", "name"])
+		.execute();
+
+	// 3. Extract logic: If name exists use it, otherwise use email
+	// const userRow = users.find((u) => u.id === userId);
+	const buddyRow = users.find((u) => u.id === buddyId);
+
+	// The || operator handles null, undefined, or empty string "" automatically
+	// const userDisplayName = userRow?.name || userRow?.email;
+	const buddyDisplayName = buddyRow?.name || buddyRow?.email;
+
+	const emailHTML = `
+<p>${buddyDisplayName} is now your buddy 😎</p>
+<a href="${process.env.AUTH_URL}/u/${buddyId}">Visit profile </a>
+`;
+	SendMail(
+		emailHTML,
+		`${buddyDisplayName} is now your buddy 😎`,
+		buddyRow?.email || "invalid@thesven.cloud",
+	);
 
 	return { success: true };
 });
