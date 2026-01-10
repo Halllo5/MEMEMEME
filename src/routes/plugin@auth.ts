@@ -12,6 +12,7 @@ export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(
       : null;
 
     return {
+      origin: env.get("AUTH_URL"),
       providers: [
         {
           id: "oidc", // e.g., "keycloak", "google", or "mock"
