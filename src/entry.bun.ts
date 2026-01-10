@@ -14,11 +14,11 @@ import render from "./entry.ssr";
 
 // Create the Qwik City Bun middleware
 const { router, notFound, staticFile } = createQwikCity({
-  render,
-  qwikCityPlan,
-  static: {
-    cacheControl: "public, max-age=31536000, immutable",
-  },
+	render,
+	qwikCityPlan,
+	static: {
+		cacheControl: "public, max-age=31536000, immutable",
+	},
 });
 
 // Allow for dynamic port
@@ -28,20 +28,26 @@ const port = Number(Bun.env.PORT ?? 3000);
 console.log(`Server started: http://localhost:${port}/`);
 
 Bun.serve({
-  async fetch(request: Request) {
-    const staticResponse = await staticFile(request);
-    if (staticResponse) {
-      return staticResponse;
-    }
+	async fetch(request: Request) {
+		const proto = request.headers.get("x-forwarded-proto");
+		if (proto === "https" && request.url.startsWith("http://")) {
+			const url = new URL(request.url);
+			url.protocol = "https:";
+			request = new Request(url.toString(), request);
+		}
+		const staticResponse = await staticFile(request);
+		if (staticResponse) {
+			return staticResponse;
+		}
 
-    // Server-side render this request with Qwik City
-    const qwikCityResponse = await router(request);
-    if (qwikCityResponse) {
-      return qwikCityResponse;
-    }
+		// Server-side render this request with Qwik City
+		const qwikCityResponse = await router(request);
+		if (qwikCityResponse) {
+			return qwikCityResponse;
+		}
 
-    // Path not found
-    return notFound(request);
-  },
-  port,
+		// Path not found
+		return notFound(request);
+	},
+	port,
 });

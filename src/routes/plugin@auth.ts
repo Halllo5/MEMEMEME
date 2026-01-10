@@ -13,7 +13,8 @@ export const { onRequest, useSession, useSignIn, useSignOut } = QwikAuth$(
 
 		return {
 			origin: env.get("AUTH_URL"),
-			trustHost: env.get("AUTH_TRUST_HOST") === 'true',
+			// trustHost: env.get("AUTH_TRUST_HOST") === 'true',
+			trustHost: true,
 			providers: [
 				{
 					id: "oidc", // e.g., "keycloak", "google", or "mock"
