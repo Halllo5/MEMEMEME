@@ -149,11 +149,11 @@ export default component$(() => {
 });
 
 export const head: DocumentHead = {
-  title: "Meme Feed",
+  title: "MEMEMEME HOME",
   meta: [
     {
       name: "description",
-      content: "An infinite scrolling feed of the dankest memes.",
+      content: "MEMEME FEED - GET YOUR MEMES.",
     },
   ],
 };

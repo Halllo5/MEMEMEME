@@ -99,22 +99,7 @@ export async function canViewMeme(
   return false;
 }
 
-export async function getVisiblePrivacyLevelsForUser(
-  session: Session | null,
-  profileUserId: string,
-): Promise<Array<Meme["privacy"]>> {
-  const levels: Array<Meme["privacy"]> = ["public"];
 
-  if (session?.user) {
-    const sessionUserId = session.user.id;
-    if (sessionUserId === profileUserId) {
-      levels.push("buddies_only", "private");
-    } else if (await areBuddies(sessionUserId, profileUserId)) {
-      levels.push("buddies_only");
-    }
-  }
-  return levels;
-}
 
 // Kysely query builder type is complex. Using 'any' for simplicity here.
 export function applyMemeFeedVisibility(query: any, session: Session | null) {
@@ -126,15 +111,26 @@ export function applyMemeFeedVisibility(query: any, session: Session | null) {
         eb("memes.privacy", "=", "public"),
         eb.and([
           eb("memes.privacy", "=", "buddies_only"),
-          eb(
-            "memes.user_id",
-            "in",
-            eb
-              .selectFrom("buddy_list")
-              .select("buddy_id")
-              .where("user_id", "=", userId)
-              .where("status", "=", "buddy"),
-          ),
+          eb.or([
+            eb(
+              "memes.user_id",
+              "in",
+              eb
+                .selectFrom("buddy_list")
+                .select("buddy_id")
+                .where("user_id", "=", userId)
+                .where("status", "=", "buddy"),
+            ),
+            eb(
+              "memes.user_id",
+              "in",
+              eb
+                .selectFrom("buddy_list")
+                .select("user_id")
+                .where("buddy_id", "=", userId)
+                .where("status", "=", "buddy"),
+            ),
+          ]),
         ]),
       ]),
     );

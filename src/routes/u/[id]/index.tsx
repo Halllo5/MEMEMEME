@@ -5,10 +5,7 @@ import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { BUCKET_NAME, s3 } from "~/lib/s3";
 import { ImageCard } from "~/components/image-card/ImageCard";
-import {
-  getBuddyStatus,
-  getVisiblePrivacyLevelsForUser,
-} from "~/lib/permissions";
+import { applyMemeFeedVisibility, getBuddyStatus } from "~/lib/permissions";
 import { useSession } from "~/routes/plugin@auth";
 import { BuddyButton } from "~/components/buddy-button/BuddyButton";
 
@@ -29,13 +26,9 @@ export const useUserLoader = routeLoader$(async (requestEvent) => {
     throw requestEvent.error(404, "User not found.");
   }
 
-  const privacyLevels = await getVisiblePrivacyLevelsForUser(
-    session,
-    profileUserId,
-  );
   const buddyStatus = await getBuddyStatus(sessionUserId, profileUserId);
 
-  const memesFromDb = await db
+  const query = db
     .selectFrom("memes")
     .where("memes.user_id", "=", profileUserId)
     .innerJoin("User", "User.id", "memes.user_id")
@@ -48,14 +41,15 @@ export const useUserLoader = routeLoader$(async (requestEvent) => {
       "User.id as uploaderId",
     ])
     .where("memes.image_url", "is not", null)
-    .where("memes.image_url", "!=", "")
-    .where("memes.privacy", "in", privacyLevels)
+    .where("memes.image_url", "!=", "");
+
+  const memesFromDb = await applyMemeFeedVisibility(query, session)
     .limit(PAGE_SIZE)
     .orderBy("memes.created_at", "desc")
     .execute();
 
   const memesWithUrls = await Promise.all(
-    memesFromDb.map(async (meme) => {
+    memesFromDb.map(async (meme: any) => {
       const s3Key = `${meme.image_url}.opt`;
       const command = new GetObjectCommand({ Bucket: BUCKET_NAME, Key: s3Key });
       const presignedImageUrl = await getSignedUrl(s3, command, {
@@ -98,7 +92,7 @@ export default component$(() => {
         {/* User Header */}
         <div class="flex flex-col items-center gap-6 sm:flex-row">
           {profilePicError.value ? (
-            <div class="rounded-base border-border bg-main text-main-foreground flex h-24 w-24 flex-shrink-0 items-center justify-center border-2 text-4xl font-bold sm:h-32 sm:w-32">
+            <div class="rounded-base border-border bg-main text-main-foreground flex h-24 w-24 shrink-0 items-center justify-center border-2 text-4xl font-bold sm:h-32 sm:w-32">
               {uploaderInitial}
             </div>
           ) : (
@@ -107,11 +101,11 @@ export default component$(() => {
               alt=""
               width={128}
               height={128}
-              class="rounded-base border-border h-24 w-24 flex-shrink-0 border-2 object-contain sm:h-32 sm:w-32"
+              class="rounded-base border-border h-24 w-24 shrink-0 border-2 object-contain sm:h-32 sm:w-32"
               onError$={() => (profilePicError.value = true)}
             />
           )}
-          <div class="flex-grow text-center sm:text-left">
+          <div class="grow text-center sm:text-left">
             <h1 class="text-3xl font-bold sm:text-4xl">{user.name}</h1>
             {/* Could add more user info here, like join date */}
           </div>

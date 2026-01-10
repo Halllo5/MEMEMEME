@@ -2,17 +2,20 @@ import { component$, Slot, type PropsOf } from "@builder.io/qwik";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "../lib/util";
 
-const headerVariants = cva("flex items-center justify-between p-4 border-b-2", {
-  variants: {
-    variant: {
-      default: "bg-background text-foreground",
-      transparent: "bg-transparent text-white",
+const headerVariants = cva(
+  "flex items-center justify-between p-3 sm:p-4 border-b-2",
+  {
+    variants: {
+      variant: {
+        default: "bg-background text-foreground",
+        transparent: "bg-transparent text-white",
+      },
+    },
+    defaultVariants: {
+      variant: "default",
     },
   },
-  defaultVariants: {
-    variant: "default",
-  },
-});
+);
 
 type HeaderProps = PropsOf<"header"> & VariantProps<typeof headerVariants>;
 
