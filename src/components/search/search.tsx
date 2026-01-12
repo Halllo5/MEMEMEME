@@ -66,7 +66,7 @@ const search = server$(async function (query: string) {
   // 2.  Order by the now-real columns
   const searchResponse = await withVisible
     .selectFrom("visible")
-    .selectAll()
+    .select(["id", "image_url","user_id", "title"])
     .orderBy(
       sql`${textWeight} * text_rank + ${vectorWeight} * (1 - (distance / 2)) DESC`,
     )
