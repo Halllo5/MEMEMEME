@@ -1,75 +1,60 @@
-# Qwik City App ⚡️
+# MEMEMEME
 
-- [Qwik Docs](https://qwik.dev/)
-- [Discord](https://qwik.dev/chat)
-- [Qwik GitHub](https://github.com/QwikDev/qwik)
-- [@QwikDev](https://twitter.com/QwikDev)
-- [Vite](https://vitejs.dev/)
+I wrote this meme organizer to learn Qwik, and I actually really enjoyed it. 10/10 would recommend :)
+It has search and a friend/buddy system to share memes with friends, but it's not quite feature complete and will have some issues.
 
----
+## What it does
 
-## Project Structure
+- Upload images(to s3 compatible storage) with captions and privacy settings
+- OCR extracts text automatically
+- Search by text or vector similarity
+- Buddy system for sharing
 
-This project is using Qwik with [QwikCity](https://qwik.dev/qwikcity/overview/). QwikCity is just an extra set of tools on top of Qwik to make it easier to build a full site, including directory-based routing, layouts, and more.
+## Tech
 
-Inside your project, you'll see the following directory structure:
+- Qwik frontend + backend with bun
+- PostgreSQL with pgvector
+- S3-compatible storage
+- Python FastAPI for OCR/vectorization
+- OIDC auth
 
-```
-├── public/
-│   └── ...
-└── src/
-    ├── components/
-    │   └── ...
-    └── routes/
-        └── ...
-```
+## Setup
 
-- `src/routes`: Provides the directory-based routing, which can include a hierarchy of `layout.tsx` layout files, and an `index.tsx` file as the page. Additionally, `index.ts` files are endpoints. Please see the [routing docs](https://qwik.dev/qwikcity/routing/overview/) for more info.
+Need: Bun, Docker/Podman, Python 3.13+, OIDC provider
 
-- `src/components`: Recommended directory for components.
+```bash
+# Install deps
+bun install
+cd processing && uv sync && cd ..
 
-- `public`: Any static assets, like images, can be placed in the public directory. Please see the [Vite public directory](https://vitejs.dev/guide/assets.html#the-public-directory) for more info.
+# Start services
+docker-compose up -d
 
-## Add Integrations and deployment
+# Start app
+bun run start
 
-Use the `bun qwik add` command to add additional integrations. Some examples of integrations includes: Cloudflare, Netlify or Express Server, and the [Static Site Generator (SSG)](https://qwik.dev/qwikcity/guides/static-site-generation/).
-
-```shell
-bun qwik add # or `bun qwik add`
-```
-
-## Development
-
-Development mode uses [Vite's development server](https://vitejs.dev/). The `dev` command will server-side render (SSR) the output during development.
-
-```shell
-npm start # or `bun start`
+# Start processing service
+cd processing && uv run fastapi dev main.py
 ```
 
-> Note: during dev mode, Vite may request a significant number of `.js` files. This does not represent a Qwik production build.
+## Environment variables
 
-## Preview
+Copy `.env.example` to `.env` in both root and `processing/` directories.
 
-The preview command will create a production build of the client modules, a production build of `src/entry.preview.tsx`, and run a local server. The preview server is only for convenience to preview a production build locally and should not be used as a production server.
+## Dev
 
-```shell
-bun preview # or `bun preview`
+```bash
+bun run start  # Main app
+cd processing && uv run fastapi dev main.py  # Processing service
 ```
 
-## Production
+## Build
 
-The production build will generate client and server modules by running both client and server build commands. The build command will use Typescript to run a type check on the source code.
-
-```shell
-bun build # or `bun build`
+```bash
+bun run build
+bun run serve  # Production server
 ```
 
-## Bun Server
+## Running in Prod?
 
-This app has a minimal [Bun server](https://bun.sh/docs/api/http) implementation. After running a full build, you can preview the build using the command:
-
-```
-bun run serve
-```
-
-Then visit [http://localhost:3000/](http://localhost:3000/)
+Why would you, but everything is Dockerized and should work. Let's hope it's secure xDD

@@ -1,6 +1,6 @@
 {
-  "name": "my-qwik-basic-starter",
-  "description": "Demo app with sample routes",
+  "name": "memememe",
+  "description": "Meme organizer written in Qwik",
   "engines": {
     "node": "^18.17.0 || ^20.3.0 || >=21.0.0"
   },
