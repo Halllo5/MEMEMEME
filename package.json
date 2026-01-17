@@ -34,7 +34,7 @@
     "@types/bun": "*",
     "@types/node": "25.0.9",
     "@types/pg": "^8.15.6",
-    "eslint": "9.32.0",
+    "eslint": "9.39.2",
     "eslint-plugin-qwik": "^1.17.2",
     "globals": "16.5.0",
     "prettier": "3.6.2",
