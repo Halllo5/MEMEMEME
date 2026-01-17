@@ -1,5 +1,5 @@
 image:
-  name: sonarsource/sonar-scanner-cli:11
+  name: sonarsource/sonar-scanner-cli:12
   entrypoint: [""]
 
 variables:
