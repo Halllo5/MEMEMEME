@@ -70,6 +70,11 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
     memeFromDb.uploaderId,
   );
 
+  // Build the stable thumbnail URL for social meta tags
+  const thumbnailUrl = shareKey
+    ? `/api/thumbnail/${memeFromDb.imageId}?share=${encodeURIComponent(shareKey)}`
+    : `/api/thumbnail/${memeFromDb.imageId}`;
+
   return {
     imageId: memeFromDb.imageId,
     caption: memeFromDb.caption,
@@ -86,6 +91,8 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
     uploaderLink: `/u/${memeFromDb.uploaderId}`,
     uploaderImageUrl: `/api/avatar/${memeFromDb.uploaderId}`,
     buddyStatus,
+    shareKey: shareKey || null,
+    thumbnailUrl,
   };
 });
 
@@ -197,21 +204,56 @@ export default component$(() => {
   );
 });
 
-export const head: DocumentHead = ({ resolveValue }) => {
+export const head: DocumentHead = ({ resolveValue, url }) => {
   const meme = resolveValue(useMemeLoader);
   if (!meme) {
     return { title: "Not found | Memememe" };
   }
+
   const title = meme.caption
     ? `${meme.caption} | Meme by ${meme.uploaderName}`
     : `Meme by ${meme.uploaderName}`;
+
+  const description = meme.caption
+    ? `${meme.caption} - A meme by ${meme.uploaderName} on Memememe.`
+    : `A meme uploaded by ${meme.uploaderName} on Memememe.`;
+
+  // Build absolute thumbnail URL for social crawlers
+  const thumbnailAbsoluteUrl = `${url.origin}${meme.thumbnailUrl}`;
+
+  // Build canonical URL (without share key)
+  const canonicalUrl = `${url.origin}/meme/${meme.imageId}`;
+
+  // Build the page URL (with share key if present, so embeds link back correctly)
+  const pageUrl = meme.shareKey
+    ? `${url.origin}/meme/${meme.imageId}?share=${encodeURIComponent(meme.shareKey)}`
+    : canonicalUrl;
+
   return {
     title,
     meta: [
-      {
-        name: "description",
-        content: `A meme titled "${meme.caption}" uploaded by ${meme.uploaderName}.`,
-      },
+      // Standard
+      { name: "description", content: description },
+
+      // Open Graph
+      { property: "og:type", content: "website" },
+      { property: "og:site_name", content: "MEMEMEME" },
+      { property: "og:title", content: title },
+      { property: "og:description", content: description },
+      { property: "og:url", content: pageUrl },
+      { property: "og:image", content: thumbnailAbsoluteUrl },
+      { property: "og:image:type", content: "image/webp" },
+      { property: "og:image:alt", content: meme.caption || `Meme by ${meme.uploaderName}` },
+
+      // Twitter Card
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: title },
+      { name: "twitter:description", content: description },
+      { name: "twitter:image", content: thumbnailAbsoluteUrl },
+      { name: "twitter:image:alt", content: meme.caption || `Meme by ${meme.uploaderName}` },
+    ],
+    links: [
+      { rel: "canonical", href: canonicalUrl },
     ],
   };
 };

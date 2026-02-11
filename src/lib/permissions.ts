@@ -171,6 +171,36 @@ export async function canViewMemeViaShare(
   return true;
 }
 
+/**
+ * Check if a share key is valid for a given meme, without updating metrics.
+ * Used by the thumbnail proxy and social crawlers to avoid inflating view counts.
+ */
+export async function isShareKeyValid(
+  shareKey: string,
+  memeId: string,
+): Promise<boolean> {
+  const share = await db
+    .selectFrom("shares")
+    .innerJoin("memes", "memes.id", "shares.meme_id")
+    .select([
+      "shares.created_by",
+      "memes.user_id",
+      "memes.privacy",
+    ])
+    .where("shares.share_key", "=", shareKey)
+    .where("shares.meme_id", "=", memeId)
+    .executeTakeFirst();
+
+  if (!share) {
+    return false;
+  }
+
+  return await canUserViewMeme(share.created_by, {
+    user_id: share.user_id,
+    privacy: share.privacy,
+  });
+}
+
 // Kysely query builder type is complex. Using 'any' for simplicity here.
 export function applyMemeFeedVisibility(query: any, session: Session | null) {
   if (session?.user) {

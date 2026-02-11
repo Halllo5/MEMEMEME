@@ -45,6 +45,7 @@ export const createShareLink = server$(async function (memeId: string) {
       share_key: shareKey,
       meme_id: memeId,
       created_by: session.user.id,
+      view_count: 0,
     })
     .returning(["id", "share_key"])
     .executeTakeFirstOrThrow();
