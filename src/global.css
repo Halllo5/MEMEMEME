@@ -13,6 +13,12 @@
   --ring: oklch(0% 0 0);
   --overlay: oklch(0% 0 0 / 0.8);
   --shadow: 4px 4px 0px 0px var(--border);
+  --error-page-background: var(--background);
+  --error-page-card: var(--secondary-background);
+  --error-page-foreground: var(--foreground);
+  --error-page-main: var(--main);
+  --error-page-border: var(--border);
+  --error-page-shadow: var(--shadow);
   --chart-1: #ffbf00;
   --chart-2: #0099ff;
   --chart-3: #ff7a05;
@@ -30,6 +36,10 @@
   --border: oklch(0% 0 0);
   --ring: oklch(100% 0 0);
   --shadow: 4px 4px 0px 0px var(--border);
+  --error-page-background: var(--background);
+  --error-page-card: var(--secondary-background);
+  --error-page-foreground: var(--foreground);
+  --error-page-main: var(--main);
   --chart-1: #e5ac00;
   --chart-2: #008ae5;
   --chart-3: #eb6d00;

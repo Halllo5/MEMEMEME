@@ -4,7 +4,7 @@ COPY package.json .
 COPY bun.lock .
 RUN bun install
 COPY . .
-RUN bun run build.server
+RUN bun run build
 
 # New Stage: Install production dependencies only
 FROM oven/bun:slim AS prod-deps

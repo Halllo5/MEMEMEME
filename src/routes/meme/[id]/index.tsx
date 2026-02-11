@@ -6,7 +6,9 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { BUCKET_NAME, s3 } from "~/lib/s3";
 import { canViewMeme, getBuddyStatus } from "~/lib/permissions";
 import { useSession } from "~/routes/plugin@auth";
+import { ErrorPageContent } from "~/components/error-page/ErrorPageContent";
 import { BuddyButton } from "~/components/buddy-button/BuddyButton";
+import { MemeEditButton } from "~/components/meme-edit-button/MemeEditButton";
 
 export const useMemeLoader = routeLoader$(async (requestEvent) => {
   const memeId = requestEvent.params.id;
@@ -32,7 +34,8 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
   const memeFromDb = await query.executeTakeFirst();
 
   if (!memeFromDb || !memeFromDb.image_url) {
-    throw requestEvent.error(404, "Meme not found.");
+    requestEvent.status(404);
+    return null;
   }
 
   const hasPermission = await canViewMeme(session, {
@@ -41,10 +44,8 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
   });
 
   if (!hasPermission) {
-    throw requestEvent.error(
-      404,
-      "Meme not found or you don't have permission.",
-    );
+    requestEvent.status(404);
+    return null;
   }
 
   const s3Key = `${memeFromDb.image_url}.opt`;
@@ -61,6 +62,7 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
   return {
     imageId: memeFromDb.imageId,
     caption: memeFromDb.caption,
+    privacy: memeFromDb.privacy,
     extractedText: memeFromDb.extracted_text,
     createdAt: new Date(memeFromDb.createdAt).toLocaleDateString("en-US", {
       year: "numeric",
@@ -76,9 +78,21 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
   };
 });
 
+const MemeNotFound = component$(() => (
+  <ErrorPageContent
+    status={404}
+    message="Meme not found or you don't have permission to view it."
+  />
+));
+
 export default component$(() => {
   const meme = useMemeLoader();
   const session = useSession();
+
+  if (!meme.value) {
+    return <MemeNotFound />;
+  }
+
   const uploaderInitial = meme.value.uploaderName.substring(0, 2).toUpperCase();
   const uploaderProfilePiceError = useSignal(false);
   return (
@@ -113,6 +127,15 @@ export default component$(() => {
               </p>
             </div>
           </Link>
+          {session.value?.user &&
+            session.value.user.id === meme.value.uploaderId && (
+              <MemeEditButton
+                memeId={meme.value.imageId}
+                uploaderId={meme.value.uploaderId}
+                caption={meme.value.caption}
+                privacy={meme.value.privacy}
+              />
+            )}
           {session.value?.user &&
             session.value.user.id !== meme.value.uploaderId && (
               <BuddyButton
@@ -160,6 +183,9 @@ export default component$(() => {
 
 export const head: DocumentHead = ({ resolveValue }) => {
   const meme = resolveValue(useMemeLoader);
+  if (!meme) {
+    return { title: "Not found | Memememe" };
+  }
   const title = meme.caption
     ? `${meme.caption} | Meme by ${meme.uploaderName}`
     : `Meme by ${meme.uploaderName}`;

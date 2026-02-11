@@ -7,6 +7,7 @@ import { BUCKET_NAME, s3 } from "~/lib/s3";
 import { ImageCard } from "~/components/image-card/ImageCard";
 import { applyMemeFeedVisibility, getBuddyStatus } from "~/lib/permissions";
 import { useSession } from "~/routes/plugin@auth";
+import { ErrorPageContent } from "~/components/error-page/ErrorPageContent";
 import { BuddyButton } from "~/components/buddy-button/BuddyButton";
 
 const PAGE_SIZE = 12;
@@ -23,7 +24,8 @@ export const useUserLoader = routeLoader$(async (requestEvent) => {
     .executeTakeFirst();
 
   if (!profileUser) {
-    throw requestEvent.error(404, "User not found.");
+    requestEvent.status(404);
+    return null;
   }
 
   const buddyStatus = await getBuddyStatus(sessionUserId, profileUserId);
@@ -78,8 +80,17 @@ export const useUserLoader = routeLoader$(async (requestEvent) => {
   };
 });
 
+const UserNotFound = component$(() => (
+  <ErrorPageContent status={404} message="User not found." />
+));
+
 export default component$(() => {
   const data = useUserLoader();
+
+  if (!data.value) {
+    return <UserNotFound />;
+  }
+
   const session = useSession();
   const user = data.value.profileUser;
   const memes = data.value.memes;
@@ -149,6 +160,9 @@ export default component$(() => {
 
 export const head: DocumentHead = ({ resolveValue }) => {
   const data = resolveValue(useUserLoader);
+  if (!data) {
+    return { title: "Not found | Memememe" };
+  }
   const title = `${data.profileUser.name}'s Profile | Memememe`;
   return {
     title,
