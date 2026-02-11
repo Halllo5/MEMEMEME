@@ -91,6 +91,17 @@ export interface ReportsTable {
   created_at: GeneratedAlways<Date>;
 }
 
+export interface SharesTable {
+  id: GeneratedAlways<string>;
+  share_key: string;
+  meme_id: string;
+  created_by: string;
+  label: string | null;
+  created_at: GeneratedAlways<Date>;
+  view_count: number;
+  last_viewed_at: Date | null;
+}
+
 // --------------------------------------------------------
 // 4. MAIN DATABASE INTERFACE
 // --------------------------------------------------------
@@ -106,6 +117,7 @@ export interface Database {
   buddy_list: BuddyListTable;
   memes: MemesTable;
   reports: ReportsTable;
+  shares: SharesTable;
 }
 
 // --------------------------------------------------------

@@ -1,6 +1,6 @@
 import { MemesTable, db } from "~/db/db";
 import type { Session } from "@auth/core/types";
-import { Selectable } from "kysely";
+import { Selectable, sql } from "kysely";
 
 type Meme = Selectable<MemesTable>;
 
@@ -99,7 +99,77 @@ export async function canViewMeme(
   return false;
 }
 
+/**
+ * Check if a user (by id) can view a meme, without needing a full Session object.
+ * Used to re-validate that a share link creator still has access.
+ */
+export async function canUserViewMeme(
+  userId: string,
+  meme: { user_id: string; privacy: Meme["privacy"] | null },
+): Promise<boolean> {
+  if (meme.privacy === "public") {
+    return true;
+  }
 
+  if (meme.user_id === userId) {
+    return true; // Owner can always view
+  }
+
+  if (meme.privacy === "buddies_only") {
+    return await areBuddies(meme.user_id, userId);
+  }
+
+  return false;
+}
+
+/**
+ * Check if a meme can be viewed via a share key.
+ * Validates the share record exists and that the creator still has access.
+ * Increments view_count and updates last_viewed_at on success.
+ */
+export async function canViewMemeViaShare(
+  shareKey: string,
+  memeId: string,
+): Promise<boolean> {
+  const share = await db
+    .selectFrom("shares")
+    .innerJoin("memes", "memes.id", "shares.meme_id")
+    .select([
+      "shares.id as shareId",
+      "shares.created_by",
+      "memes.user_id",
+      "memes.privacy",
+    ])
+    .where("shares.share_key", "=", shareKey)
+    .where("shares.meme_id", "=", memeId)
+    .executeTakeFirst();
+
+  if (!share) {
+    return false;
+  }
+
+  // Verify the share creator still has access to the meme
+  const creatorHasAccess = await canUserViewMeme(share.created_by, {
+    user_id: share.user_id,
+    privacy: share.privacy,
+  });
+
+  if (!creatorHasAccess) {
+    return false;
+  }
+
+  // Update metrics
+  await db
+    .updateTable("shares")
+    .set({
+      view_count: sql`view_count + 1`,
+      last_viewed_at: sql`now()`,
+    })
+    .where("id", "=", share.shareId)
+    .execute();
+
+  return true;
+}
 
 // Kysely query builder type is complex. Using 'any' for simplicity here.
 export function applyMemeFeedVisibility(query: any, session: Session | null) {

@@ -4,11 +4,16 @@ import { db } from "~/db/db";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { BUCKET_NAME, s3 } from "~/lib/s3";
-import { canViewMeme, getBuddyStatus } from "~/lib/permissions";
+import {
+  canViewMeme,
+  canViewMemeViaShare,
+  getBuddyStatus,
+} from "~/lib/permissions";
 import { useSession } from "~/routes/plugin@auth";
 import { ErrorPageContent } from "~/components/error-page/ErrorPageContent";
 import { BuddyButton } from "~/components/buddy-button/BuddyButton";
 import { MemeEditButton } from "~/components/meme-edit-button/MemeEditButton";
+import { ShareButton } from "~/components/share-button/ShareButton";
 
 export const useMemeLoader = routeLoader$(async (requestEvent) => {
   const memeId = requestEvent.params.id;
@@ -38,10 +43,16 @@ export const useMemeLoader = routeLoader$(async (requestEvent) => {
     return null;
   }
 
-  const hasPermission = await canViewMeme(session, {
+  let hasPermission = await canViewMeme(session, {
     user_id: memeFromDb.uploaderId,
     privacy: memeFromDb.privacy,
   });
+
+  // If normal access denied, check for a share key in the query string
+  const shareKey = requestEvent.url.searchParams.get("share");
+  if (!hasPermission && shareKey) {
+    hasPermission = await canViewMemeViaShare(shareKey, memeId);
+  }
 
   if (!hasPermission) {
     requestEvent.status(404);
@@ -99,13 +110,13 @@ export default component$(() => {
     <div class="mx-auto max-w-3xl p-4 sm:p-6 lg:p-8">
       <div class="space-y-6">
         {/* Header: Uploader Info */}
-        <div class="flex items-center justify-between gap-4">
+        <div class="flex items-center justify-between gap-2 sm:gap-4">
           <Link
             href={meme.value.uploaderLink}
-            class="group flex items-center gap-4"
+            class="group flex min-w-0 items-center gap-3 sm:gap-4"
           >
             {uploaderProfilePiceError.value ? (
-              <div class="rounded-base border-border bg-main text-main-foreground flex h-12 w-12 items-center justify-center border-2 text-lg font-bold">
+              <div class="rounded-base border-border bg-main text-main-foreground flex h-12 w-12 shrink-0 items-center justify-center border-2 text-lg font-bold">
                 {uploaderInitial}
               </div>
             ) : (
@@ -114,35 +125,40 @@ export default component$(() => {
                 alt=""
                 width={48}
                 height={48}
-                class="rounded-base border-border h-12 w-12 border-2 object-cover"
+                class="rounded-base border-border h-12 w-12 shrink-0 border-2 object-cover"
                 onError$={() => (uploaderProfilePiceError.value = true)}
               />
             )}
-            <div>
-              <p class="text-lg font-bold group-hover:underline">
+            <div class="min-w-0">
+              <p class="truncate text-lg font-bold group-hover:underline">
                 {meme.value.uploaderName}
               </p>
-              <p class="text-foreground/70 text-sm">
+              <p class="text-foreground/70 truncate text-sm">
                 Uploaded on {meme.value.createdAt}
               </p>
             </div>
           </Link>
-          {session.value?.user &&
-            session.value.user.id === meme.value.uploaderId && (
-              <MemeEditButton
-                memeId={meme.value.imageId}
-                uploaderId={meme.value.uploaderId}
-                caption={meme.value.caption}
-                privacy={meme.value.privacy}
-              />
+          <div class="flex shrink-0 items-center gap-2">
+            {session.value?.user && (
+              <ShareButton memeId={meme.value.imageId} />
             )}
-          {session.value?.user &&
-            session.value.user.id !== meme.value.uploaderId && (
-              <BuddyButton
-                buddyStatus={meme.value.buddyStatus}
-                profileUserId={meme.value.uploaderId}
-              />
-            )}
+            {session.value?.user &&
+              session.value.user.id === meme.value.uploaderId && (
+                <MemeEditButton
+                  memeId={meme.value.imageId}
+                  uploaderId={meme.value.uploaderId}
+                  caption={meme.value.caption}
+                  privacy={meme.value.privacy}
+                />
+              )}
+            {session.value?.user &&
+              session.value.user.id !== meme.value.uploaderId && (
+                <BuddyButton
+                  buddyStatus={meme.value.buddyStatus}
+                  profileUserId={meme.value.uploaderId}
+                />
+              )}
+          </div>
         </div>
 
         {/* Main Image */}

@@ -41,7 +41,15 @@ export const UserAuth = component$(() => {
               {user.email}
             </Link>
           </div>
-          <div class="p-2">
+          <div class="border-border border-t-2 p-2">
+            <Link
+              href={`/u/${user.id}/shares`}
+              class="text-foreground decoration-main text-sm underline decoration-2"
+            >
+              My Shares
+            </Link>
+          </div>
+          <div class="border-border border-t-2 p-2">
             <Form action={signout}>
               <input type="hidden" name="options.callbackUrl" value="/" />
               <Button class="w-full justify-start">Sign Out</Button>
