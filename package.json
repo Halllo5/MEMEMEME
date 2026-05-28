@@ -45,7 +45,7 @@
     "typescript-plugin-css-modules": "latest",
     "undici": "*",
     "vite": "7.3.1",
-    "vite-tsconfig-paths": "^4.2.1"
+    "vite-tsconfig-paths": "^6.0.0"
   },
   "dependencies": {
     "@auth/kysely-adapter": "^1.11.1",
